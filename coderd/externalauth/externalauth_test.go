@@ -878,16 +878,21 @@ func TestValidateToken(t *testing.T) {
 		reg := prometheus.NewRegistry()
 		f := promoauth.NewFactory(reg)
 		logs := &bytes.Buffer{}
+		logger := slog.Make(slogjson.Sink(logs)).Leveled(slog.LevelDebug)
+		// Build through ConvertConfig so the metric recorder and named
+		// logger are wired the same way as in production.
+		configs, err := externalauth.ConvertConfig(logger, f, []codersdk.ExternalAuthConfig{{
+			ID:           providerName,
+			Type:         codersdk.EnhancedExternalAuthProviderGitHub.String(),
+			ClientID:     "id",
+			ClientSecret: "secret",
+			ValidateURL:  validateURL,
+		}}, &url.URL{})
+		require.NoError(t, err)
 		return validateResult{
-			config: &externalauth.Config{
-				InstrumentedOAuth2Config: f.New(providerName, &oauth2.Config{}),
-				Logger:                   slog.Make(slogjson.Sink(logs)).Leveled(slog.LevelDebug),
-				ID:                       providerName,
-				Type:                     codersdk.EnhancedExternalAuthProviderGitHub.String(),
-				ValidateURL:              validateURL,
-			},
-			reg:  reg,
-			logs: logs,
+			config: configs[0],
+			reg:    reg,
+			logs:   logs,
 		}
 	}
 

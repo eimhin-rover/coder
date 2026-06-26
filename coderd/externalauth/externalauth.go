@@ -60,6 +60,10 @@ type Config struct {
 	promoauth.InstrumentedOAuth2Config
 	// Logger records token validation outcomes. A zero value is a no-op.
 	Logger slog.Logger
+	// recordTokenValidation records the result of a token validation on the
+	// provider metric. It is nil for configs built without instrumentation,
+	// in which case recording is skipped.
+	recordTokenValidation func(promoauth.TokenValidationResult)
 	// ID is a unique identifier for the authenticator.
 	ID string
 	// Type is the type of provider.
@@ -510,7 +514,7 @@ func (c *Config) ValidateToken(ctx context.Context, link *oauth2.Token) (bool, *
 
 	case http.StatusOK:
 		// Success, handled below.
-		c.RecordTokenValidation(promoauth.TokenValidationConfirmed)
+		c.recordTokenValidationResult(promoauth.TokenValidationConfirmed)
 
 	default:
 		data, _ := io.ReadAll(res.Body)
@@ -539,13 +543,21 @@ func (c *Config) ValidateToken(ctx context.Context, link *oauth2.Token) (bool, *
 // metric for a token kept valid without provider confirmation because the
 // validation endpoint returned a rate-limited response.
 func (c *Config) recordRateLimitedValidation(ctx context.Context, statusCode int, reason string) {
-	c.RecordTokenValidation(promoauth.TokenValidationRateLimited)
+	c.recordTokenValidationResult(promoauth.TokenValidationRateLimited)
 	c.Logger.Warn(ctx, "external auth validation endpoint rate-limited; keeping token without provider confirmation",
 		slog.F("provider_id", c.ID),
 		slog.F("provider_type", c.Type),
 		slog.F("status_code", statusCode),
 		slog.F("reason", reason),
 	)
+}
+
+// recordTokenValidationResult records result on the provider metric when
+// instrumentation is configured.
+func (c *Config) recordTokenValidationResult(result promoauth.TokenValidationResult) {
+	if c.recordTokenValidation != nil {
+		c.recordTokenValidation(result)
+	}
 }
 
 type AppInstallation struct {
@@ -925,6 +937,7 @@ func ConvertConfig(logger slog.Logger, instrument *promoauth.Factory, entries []
 		cfg := &Config{
 			InstrumentedOAuth2Config:      instrumented,
 			Logger:                        logger.Named("externalauth").With(slog.F("provider_id", entry.ID)),
+			recordTokenValidation:         instrument.TokenValidationRecorder(entry.ID),
 			ID:                            entry.ID,
 			ClientID:                      entry.ClientID,
 			ClientSecret:                  entry.ClientSecret,

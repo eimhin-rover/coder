@@ -63,10 +63,6 @@ type InstrumentedOAuth2Config interface {
 	// Do is provided as a convenience method to make a request with the oauth2 client.
 	// It mirrors `http.Client.Do`.
 	Do(ctx context.Context, source Oauth2Source, req *http.Request) (*http.Response, error)
-
-	// RecordTokenValidation increments the token validation counter for the
-	// given result.
-	RecordTokenValidation(result TokenValidationResult)
 }
 
 var _ OAuth2Config = (*Config)(nil)
@@ -185,6 +181,17 @@ func (f *Factory) New(name string, under OAuth2Config) *Config {
 	}
 }
 
+// TokenValidationRecorder returns a function that records token validation
+// results for the named provider on the shared counter.
+func (f *Factory) TokenValidationRecorder(name string) func(result TokenValidationResult) {
+	return func(result TokenValidationResult) {
+		f.metrics.tokenValidationCount.With(prometheus.Labels{
+			"name":   name,
+			"result": string(result),
+		}).Inc()
+	}
+}
+
 // NewGithub returns a new instrumented oauth2 config for github. It tracks
 // rate limits as well as just the external request counts.
 //
@@ -237,13 +244,6 @@ type Config struct {
 func (c *Config) Do(ctx context.Context, source Oauth2Source, req *http.Request) (*http.Response, error) {
 	cli := c.oauthHTTPClient(ctx, source)
 	return cli.Do(req)
-}
-
-func (c *Config) RecordTokenValidation(result TokenValidationResult) {
-	c.metrics.tokenValidationCount.With(prometheus.Labels{
-		"name":   c.name,
-		"result": string(result),
-	}).Inc()
 }
 
 func (c *Config) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
