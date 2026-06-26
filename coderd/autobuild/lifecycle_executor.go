@@ -323,7 +323,7 @@ func (e *Executor) runOnce(t time.Time) Stats {
 						// A deadline change (e.g. activity bump) re-arms the reminder; users near
 						// the boundary may receive one reminder per bump. Intentional: one-per-build
 						// would leave stale reminders after a bump.
-						if shouldRemindAutostop(latestBuild, templateSchedule, currentTick) {
+						if shouldRemindAutostop(latestBuild, ws.LastUsedAt, templateSchedule, currentTick) {
 							if err := tx.UpdateWorkspaceBuildNotifiedAutostopDeadline(e.ctx, database.UpdateWorkspaceBuildNotifiedAutostopDeadlineParams{
 								ID:                       latestBuild.ID,
 								NotifiedAutostopDeadline: latestBuild.Deadline,
@@ -599,7 +599,18 @@ func (e *Executor) runOnce(t time.Time) Stats {
 }
 
 // shouldRemindAutostop reports whether a reminder notification should be sent
-// for the workspace's latest build at currentTick.
+// for the workspace's latest build at currentTick. lastUsedAt is the
+// workspace's last-used timestamp, used to skip the reminder for active
+// workspaces (see the active-user guard below).
+//
+// The active-user skip only applies when activity can actually keep the
+// workspace alive. Activity bumps move the deadline by template.activity_bump,
+// but they are capped at the build's max_deadline (a hard ceiling from
+// autostop-requirement intersected with quiet hours) and do not happen at all
+// when activity_bump is zero. So an active workspace will still stop, and we
+// still remind, when bumping is disabled or when max_deadline is pinned within
+// the lead window. Only when bumping is enabled AND the deadline can escape the
+// window do we treat the user as safe and skip.
 //
 // time_til_autostop_notify has no upper bound. If it exceeds a
 // workspace's remaining lifetime, the notify window already covers "now" at
@@ -608,7 +619,7 @@ func (e *Executor) runOnce(t time.Time) Stats {
 // Deadline, stamped in the transaction before the send attempt) filters every
 // subsequent tick. The result is exactly one reminder per deadline, never one
 // per tick.
-func shouldRemindAutostop(build database.WorkspaceBuild, templateSchedule schedule.TemplateScheduleOptions, currentTick time.Time) bool {
+func shouldRemindAutostop(build database.WorkspaceBuild, lastUsedAt time.Time, templateSchedule schedule.TemplateScheduleOptions, currentTick time.Time) bool {
 	if templateSchedule.TimeTilAutostopNotify <= 0 {
 		return false
 	}
@@ -624,6 +635,29 @@ func shouldRemindAutostop(build database.WorkspaceBuild, templateSchedule schedu
 	// "now" must be within the lead window before the deadline, i.e.
 	// deadline <= now + time_til_autostop_notify.
 	if build.Deadline.After(currentTick.Add(templateSchedule.TimeTilAutostopNotify)) {
+		return false
+	}
+
+	// Skip the reminder only when the user is active AND an activity bump can
+	// actually move the deadline out of the lead window. An active workspace
+	// keeps getting its deadline bumped, so it will not actually stop and a
+	// reminder would be misleading. But bumps are capped at max_deadline and
+	// disabled when activity_bump is zero, so an active user can still be
+	// force-stopped; in those cases we still remind.
+	userActive := currentTick.Sub(lastUsedAt) < templateSchedule.TimeTilAutostopNotify
+	bumpEnabled := templateSchedule.ActivityBump > 0
+	// The hard ceiling traps the workspace inside the window: a non-zero
+	// max_deadline at or before now+ttl means no bump can push the stop out of
+	// the lead window, so it WILL stop regardless of activity.
+	maxDeadlineTraps := !build.MaxDeadline.IsZero() &&
+		!build.MaxDeadline.After(currentTick.Add(templateSchedule.TimeTilAutostopNotify))
+
+	// This `userActive && bumpEnabled && !maxDeadlineTraps` skip-guard is the
+	// exact complement of the keep-condition in the reminder arm of
+	// GetWorkspacesEligibleForLifecycleAction
+	// (NOT userActive OR NOT bumpEnabled OR maxDeadlineTraps), so a row that
+	// passes the SQL pre-filter also passes this re-check (and vice versa).
+	if userActive && bumpEnabled && !maxDeadlineTraps {
 		return false
 	}
 
