@@ -28,7 +28,6 @@ import (
 
 	"github.com/coder/coder/v2/coderd"
 	"github.com/coder/coder/v2/coderd/coderdtest/oidctest"
-	"github.com/coder/coder/v2/coderd/coderdtest/promhelp"
 	"github.com/coder/coder/v2/coderd/database"
 	"github.com/coder/coder/v2/coderd/database/dbmock"
 	"github.com/coder/coder/v2/coderd/database/dbtestutil"
@@ -862,12 +861,11 @@ func TestValidateToken(t *testing.T) {
 	// (X-RateLimit-Remaining, Retry-After) that the FakeIDP's
 	// WithDynamicUserInfo hook does not expose.
 
-	// validateResult bundles the config under test with the metric registry
-	// and captured log output so subtests can assert the observability signals
-	// emitted for rate-limited validations.
+	// validateResult bundles the config under test with its captured log
+	// output so subtests can assert the warning emitted for rate-limited
+	// validations.
 	type validateResult struct {
 		config *externalauth.Config
-		reg    *prometheus.Registry
 		logs   *bytes.Buffer
 	}
 
@@ -875,12 +873,11 @@ func TestValidateToken(t *testing.T) {
 
 	newValidateConfig := func(t *testing.T, validateURL string) validateResult {
 		t.Helper()
-		reg := prometheus.NewRegistry()
-		f := promoauth.NewFactory(reg)
+		f := promoauth.NewFactory(prometheus.NewRegistry())
 		logs := &bytes.Buffer{}
 		logger := slog.Make(slogjson.Sink(logs)).Leveled(slog.LevelDebug)
-		// Build through ConvertConfig so the metric recorder and named
-		// logger are wired the same way as in production.
+		// Build through ConvertConfig so the named logger is wired the same
+		// way as in production.
 		configs, err := externalauth.ConvertConfig(logger, f, []codersdk.ExternalAuthConfig{{
 			ID:           providerName,
 			Type:         codersdk.EnhancedExternalAuthProviderGitHub.String(),
@@ -891,14 +888,9 @@ func TestValidateToken(t *testing.T) {
 		require.NoError(t, err)
 		return validateResult{
 			config: configs[0],
-			reg:    reg,
 			logs:   logs,
 		}
 	}
-
-	const validationMetric = "coderd_oauth2_external_requests_token_validation_total"
-	rateLimitedLabels := prometheus.Labels{"name": providerName, "result": "rate_limited"}
-	confirmedLabels := prometheus.Labels{"name": providerName, "result": "confirmed"}
 
 	// requireRateLimitLog asserts that exactly one WARN line was emitted for a
 	// rate-limited validation, carrying the provider identity and the status
@@ -963,10 +955,6 @@ func TestValidateToken(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, valid, "rate-limited 403 should be treated as optimistically valid")
 		assert.Nil(t, user)
-		assert.Equal(t, 1, promhelp.CounterValue(t, config.reg, validationMetric, rateLimitedLabels),
-			"rate-limited validation should be counted")
-		assert.Nil(t, promhelp.MetricValue(t, config.reg, validationMetric, confirmedLabels),
-			"a rate-limited validation is not a confirmation")
 		requireRateLimitLog(t, config.logs.String(), http.StatusForbidden, "rate_limit_headers")
 	})
 
@@ -987,8 +975,6 @@ func TestValidateToken(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, valid, "rate-limited 403 with Retry-After should be optimistically valid")
 		assert.Nil(t, user)
-		assert.Equal(t, 1, promhelp.CounterValue(t, config.reg, validationMetric, rateLimitedLabels),
-			"rate-limited validation should be counted")
 		requireRateLimitLog(t, config.logs.String(), http.StatusForbidden, "rate_limit_headers")
 	})
 
@@ -1012,8 +998,6 @@ func TestValidateToken(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, valid, "403 with non-zero rate limit remaining means token is invalid")
 		assert.Nil(t, user)
-		assert.Nil(t, promhelp.MetricValue(t, config.reg, validationMetric, rateLimitedLabels),
-			"a genuine revocation is not a rate limit")
 		assert.Empty(t, config.logs.String(), "a genuine revocation should not log a rate-limit warning")
 	})
 
@@ -1073,8 +1057,6 @@ func TestValidateToken(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, valid, "401 is always invalid, even with rate-limit headers")
 		assert.Nil(t, user)
-		assert.Nil(t, promhelp.MetricValue(t, config.reg, validationMetric, rateLimitedLabels),
-			"401 short-circuits before the rate-limit check")
 	})
 
 	// TooManyRequests: 429 is treated optimistically, same as a
@@ -1094,13 +1076,11 @@ func TestValidateToken(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, valid, "429 should be treated as optimistically valid")
 		assert.Nil(t, user)
-		assert.Equal(t, 1, promhelp.CounterValue(t, config.reg, validationMetric, rateLimitedLabels),
-			"rate-limited validation should be counted")
 		requireRateLimitLog(t, config.logs.String(), http.StatusTooManyRequests, "http_429")
 	})
 
-	// Confirmed: a 200 means the provider confirmed the token. It is counted
-	// as confirmed and logs no rate-limit warning.
+	// Confirmed: a 200 means the provider confirmed the token. It logs no
+	// rate-limit warning.
 	t.Run("Confirmed", func(t *testing.T) {
 		t.Parallel()
 
@@ -1115,10 +1095,6 @@ func TestValidateToken(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.True(t, valid, "200 means the provider confirmed the token")
-		assert.Equal(t, 1, promhelp.CounterValue(t, config.reg, validationMetric, confirmedLabels),
-			"a confirmed validation should be counted")
-		assert.Nil(t, promhelp.MetricValue(t, config.reg, validationMetric, rateLimitedLabels),
-			"a confirmation is not a rate limit")
 		assert.Empty(t, config.logs.String(), "a confirmed validation should not log a rate-limit warning")
 	})
 }

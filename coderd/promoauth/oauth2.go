@@ -34,17 +34,6 @@ const (
 	SourceGitAPITeamMemberships Oauth2Source = "GitAPITeamMemberships"
 )
 
-// TokenValidationResult is the outcome of an external auth token validation.
-type TokenValidationResult string
-
-const (
-	// TokenValidationConfirmed is set when the provider returned HTTP 200.
-	TokenValidationConfirmed TokenValidationResult = "confirmed"
-	// TokenValidationRateLimited is set when the validation endpoint returned a
-	// 403 with rate-limit headers or a 429.
-	TokenValidationRateLimited TokenValidationResult = "rate_limited"
-)
-
 // OAuth2Config exposes a subset of *oauth2.Config functions for easier testing.
 // *oauth2.Config should be used instead of implementing this in production.
 type OAuth2Config interface {
@@ -90,9 +79,6 @@ type metrics struct {
 	// This is included because it is sometimes more helpful to know the limit
 	// will reset in 600seconds, rather than at 1704000000 unix time.
 	rateLimitResetIn *prometheus.GaugeVec
-
-	// tokenValidationCount counts external auth token validations by result.
-	tokenValidationCount *prometheus.CounterVec
 }
 
 func NewFactory(registry prometheus.Registerer) *Factory {
@@ -157,18 +143,6 @@ func NewFactory(registry prometheus.Registerer) *Factory {
 				"name",
 				"resource",
 			}),
-			tokenValidationCount: factory.NewCounterVec(prometheus.CounterOpts{
-				Namespace: "coderd",
-				Subsystem: "oauth2",
-				Name:      "external_requests_token_validation_total",
-				Help: "The total number of external auth token validations by result. " +
-					"'result' is 'confirmed' when the provider confirmed the token, or " +
-					"'rate_limited' when the token was kept optimistically because the " +
-					"validation endpoint was rate-limited.",
-			}, []string{
-				"name",
-				"result",
-			}),
 		},
 	}
 }
@@ -178,17 +152,6 @@ func (f *Factory) New(name string, under OAuth2Config) *Config {
 		name:       name,
 		underlying: under,
 		metrics:    f.metrics,
-	}
-}
-
-// TokenValidationRecorder returns a function that records token validation
-// results for the named provider on the shared counter.
-func (f *Factory) TokenValidationRecorder(name string) func(result TokenValidationResult) {
-	return func(result TokenValidationResult) {
-		f.metrics.tokenValidationCount.With(prometheus.Labels{
-			"name":   name,
-			"result": string(result),
-		}).Inc()
 	}
 }
 
