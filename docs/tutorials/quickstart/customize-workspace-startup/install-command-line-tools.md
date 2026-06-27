@@ -49,6 +49,12 @@ echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 ```
 
+Confirm Homebrew is available before you continue:
+
+```sh
+brew --version
+```
+
 Install [mise](https://mise.jdx.dev/) with its setup script:
 
 ```sh
@@ -110,7 +116,7 @@ The restart rebuilds the container from the image and keeps only your home direc
 ### UI
 
 Open your workspace in the Coder dashboard and select **Restart**.
-When it's back, reconnect your terminal: reopen the web terminal, or run `coder ssh <your-workspace>` from your own machine.
+When it's back, reconnect by reopening the web terminal.
 
 ### CLI
 

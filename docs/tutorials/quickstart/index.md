@@ -13,7 +13,7 @@ The Quickstart guide is split into the following sections:
   - [Add a programming language](./customize-workspace-startup/add-a-language.md): expose a new language through a parameter and install it at startup.
   - [Install your own command-line tools](./customize-workspace-startup/install-command-line-tools.md): install personal command-line tools and make them persist.
   - [Personalize your workspace with dotfiles](./customize-workspace-startup/personalize-with-dotfiles.md): pull in a dotfiles repository with a registry module.
-  - [Authenticate to GitHub](./customize-workspace-startup/authenticate-to-github.md): clone private repositories with an external-auth data source.
+  - [Clone private repositories](./customize-workspace-startup/authenticate-to-github.md): authenticate to GitHub with an external-auth data source.
 
 If you'd rather skip the tutorial and just install the CLI, then you can visit the [Install guide](/docs/install/index.md#localindividual-installs) for those instructions.
 
@@ -36,3 +36,8 @@ Admins create and manage Templates, the recipes, while developers use those Temp
 - A machine with 2+ CPU cores and 4GB+ RAM
 - Familiarity with running commands in the terminal
 - 10-30 minutes of your time, depending on which guides you follow
+
+## Next steps
+
+Start with [Launch your first workspace](./launch-workspace.md), part 1 of the
+series.

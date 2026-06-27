@@ -46,9 +46,9 @@ Adding an `option` adds a choice to that list.
 
 ## Step 1: Add the Ruby option
 
-In `main.tf`, find the `data "coder_parameter" "languages"` block (it starts at line 31).
-The last option, **C/C++**, ends at line 71, and the parameter's closing brace is line 72.
-Add a Ruby `option` between lines 71 and 72, after the last option and before the closing brace:
+In `main.tf`, find the `data "coder_parameter" "languages"` block.
+Add a Ruby `option` after the last existing option, before the parameter's
+closing brace:
 
 ```tf
   option {
@@ -61,6 +61,9 @@ Add a Ruby `option` between lines 71 and 72, after the last option and before th
 > [!IMPORTANT]
 > The `option` block must sit at the same indentation as the other `option` blocks inside the parameter.
 > Coder reads the parameter's choices from these blocks, so a misplaced `option` doesn't appear in the form.
+
+The `icon` value points at an icon bundled with your Coder deployment.
+To browse the full set and copy a path, open `https://<your-coder-url>/icons`.
 
 Now publish the change as a new template version:
 
@@ -196,13 +199,13 @@ A new language needs both.
 The selection travels through the template in four steps:
 
 1. The `option` block in `data "coder_parameter" "languages"` (`main.tf`) adds `ruby` to the values the form accepts.
-2. When the workspace builds, `local.languages` decodes the selection (`main.tf` line 193):
+2. When the workspace builds, `local.languages` decodes the selection in `main.tf`:
 
    ```tf
    languages = jsondecode(data.coder_parameter.languages.value)
    ```
 
-3. `coder_script.install_languages` renders the startup script with that list and runs it on the agent (`main.tf` lines 264-273):
+3. `coder_script.install_languages` renders the startup script with that list and runs it on the agent (also in `main.tf`):
 
    ```tf
    script = templatefile("${path.module}/install-languages.sh.tftpl", {

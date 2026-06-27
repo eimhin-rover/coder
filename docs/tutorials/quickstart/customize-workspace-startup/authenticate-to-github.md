@@ -1,8 +1,9 @@
-# Authenticate to GitHub from your workspace
+# Clone private repositories
 
 Now that you've finished [Launch your first workspace](../launch-workspace.md), you can let your workspaces clone private GitHub repositories without a manual login each time.
 
-The Quickstart template can clone a repository into your workspace through its **Git Repository (Optional)** parameter, but a private repository needs authentication.
+The Quickstart template already clones **public** repositories through its **Git Repository (Optional)** parameter with no extra setup.
+A **private** repository needs authentication, which is what you add here.
 In this guide, you add the `coder_external_auth` data source, connect your workspace to GitHub, and clone a private repository with no manual login.
 This guide uses GitHub, and the same external-auth pattern works for other providers.
 
@@ -23,6 +24,12 @@ You already met one [data source](https://developer.hashicorp.com/terraform/lang
 `coder_external_auth` is a data source you add for its side effect rather than its value.
 Its presence tells Coder that a workspace requires an authenticated session with a provider before it starts.
 The `id` points at a provider configured on the Coder deployment, and the local Coder server you started in Part 1 already has a `github` provider available.
+
+> [!NOTE]
+> External authentication lets a workspace sign in to an outside service, such as a Git provider, before it starts.
+> A default Coder install includes a built-in GitHub app, so `id = "github"` works without extra setup.
+> An admin can configure other providers (GitLab, Bitbucket, Azure DevOps, or generic OIDC) or replace the built-in GitHub app.
+> To learn more, refer to [External authentication](../../../admin/external-auth/index.md).
 
 ## Step 1: Require GitHub authentication
 
@@ -589,8 +596,14 @@ resource "docker_container" "workspace" {
 
 ## What's next?
 
-You finished Customize workspace startup.
-Return to the [Quickstart overview](../index.md) to see the rest of the series.
+You finished the Customize workspace startup series, and your workspaces can now clone private repositories.
+
+This is the last guide in the series. To keep going, explore more of what Coder offers:
+
+- [Manage workspaces for your team](../../../user-guides/workspace-management.md).
+- [Try Coder Agents](../../../ai-coder/agents/getting-started.md), the chat interface and API for delegating work to coding agents.
+
+Or revisit the [Quickstart overview](../index.md) for the full list of guides.
 
 ## Learn more
 

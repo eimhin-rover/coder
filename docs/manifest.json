@@ -43,8 +43,8 @@
 									"path": "./tutorials/quickstart/customize-workspace-startup/personalize-with-dotfiles.md"
 								},
 								{
-									"title": "Authenticate to GitHub",
-									"description": "Clone private repositories with an external-auth data source",
+									"title": "Clone private repositories",
+									"description": "Authenticate to GitHub with an external-auth data source",
 									"path": "./tutorials/quickstart/customize-workspace-startup/authenticate-to-github.md"
 								}
 							]

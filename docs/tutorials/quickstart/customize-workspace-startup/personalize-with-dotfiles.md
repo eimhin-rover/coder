@@ -3,6 +3,7 @@
 Now that you've finished [Launch your first workspace](../launch-workspace.md), you can make every workspace start with your own shell, editor, and Git configuration.
 
 [Dotfiles](https://dotfiles.github.io/) are the hidden configuration files in your home directory, such as `.bashrc`, `.gitconfig`, and `.vimrc`.
+A dotfiles repository can also include an install script (often `install.sh`) that installs your personal utilities when it runs, so one repository reproduces both your configuration and your tools.
 In this guide, you add the Coder dotfiles module to the template, point your workspace at your dotfiles repository, and apply your shell and editor settings every time the workspace starts.
 
 > [!NOTE]

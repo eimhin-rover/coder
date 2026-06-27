@@ -20,7 +20,7 @@ Work through the guides in order, or pick the one that solves your problem:
 - [Add a programming language](./add-a-language.md): expose a new language through a parameter and install it at startup.
 - [Install your own command-line tools](./install-command-line-tools.md): install personal command-line tools and make them persist.
 - [Personalize your workspace with dotfiles](./personalize-with-dotfiles.md): pull in a dotfiles repository with a registry module.
-- [Authenticate to GitHub](./authenticate-to-github.md): clone private repositories with an external-auth data source.
+- [Clone private repositories](./authenticate-to-github.md): authenticate to GitHub with an external-auth data source.
 
 Each guide takes about 10 minutes.
 

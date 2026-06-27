@@ -77,8 +77,25 @@ provides the Docker daemon on macOS without the overhead of Docker Desktop.
    colima start
    ```
 
-   Colima configures the `docker` CLI to use its socket. If the Coder server
-   later can't reach the Docker daemon, refer to
+1. Point the Coder server at Colima's socket, and save the setting so future
+   shells keep it. Find the socket path:
+
+   ```sh
+   colima status
+   ```
+
+   Look for the `socket:` line, then export `DOCKER_HOST` and append the same
+   line to your shell profile (`~/.zshrc` or `~/.bashrc`) so it persists. For
+   example:
+
+   ```sh
+   export DOCKER_HOST="unix://${HOME}/.config/colima/default/docker.sock"
+   echo 'export DOCKER_HOST="unix://${HOME}/.config/colima/default/docker.sock"' >> ~/.zshrc
+   ```
+
+   Set this before you run `coder server` in
+   [Step 2](#step-2-install-and-start-coder) so the server reaches the Docker
+   daemon on the first try. If it still can't connect, refer to
    [Cannot connect to the Docker daemon](#cannot-connect-to-the-docker-daemon).
 
 ### Windows
@@ -386,12 +403,20 @@ error: configure http(s): listen tcp 127.0.0.1:3000: bind: address already in us
 Another process is already listening on port 3000. Identify and stop it,
 then start the server again.
 
+<div class="tabs">
+
 #### Linux
 
-1. Stop the process:
+1. Identify the process using port 3000:
 
    ```sh
-   sudo systemctl stop coder
+   sudo lsof -i :3000
+   ```
+
+1. Stop the process using the PID from the previous command:
+
+   ```sh
+   kill <PID>
    ```
 
 1. Start Coder:
@@ -445,6 +470,8 @@ then start the server again.
    ```sh
    coder server
    ```
+
+</div>
 
 ## What's next?
 
