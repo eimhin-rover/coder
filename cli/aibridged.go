@@ -294,6 +294,23 @@ func buildAIProviderFromRow(
 			SendActorHeaders: sendActorHeaders,
 		}, bedrock)
 
+	case database.AIProviderTypeClaudePlatformAws:
+		claudePlatform := claudePlatformConfigFromRow(row, settings)
+		// A Claude Platform for AWS row authenticates exclusively via
+		// settings (SigV4 or a workspace API key); without populated
+		// settings it cannot make upstream calls, so refuse rather than
+		// falling back to an unsigned Anthropic client.
+		if claudePlatform == nil {
+			return nil, xerrors.New("claude-platform-aws provider has no claude platform settings configured")
+		}
+		return aibridge.NewClaudePlatformAWSProvider(ctx, aibridge.AnthropicConfig{
+			Name:             row.Name,
+			BaseURL:          row.BaseUrl,
+			APIDumpDir:       dumpDir,
+			CircuitBreaker:   cbCfg,
+			SendActorHeaders: sendActorHeaders,
+		}, claudePlatform)
+
 	case database.AIProviderTypeCopilot:
 		// Copilot is always BYOK; the per-user token is supplied on each
 		// request via the Authorization header, so no keypool is built.
@@ -350,6 +367,32 @@ func bedrockConfigFromRow(row database.AIProvider, settings codersdk.AIProviderS
 		Model:           bedrockSettings.Model,
 		SmallFastModel:  bedrockSettings.SmallFastModel,
 		RoleARN:         bedrockSettings.RoleARN,
+	}
+}
+
+// claudePlatformConfigFromRow returns nil when the settings have no Claude
+// Platform for AWS discriminator or when its fields are not actually
+// configured. The provider row's BaseUrl is the generic upstream endpoint and
+// is always non-empty, so it cannot serve as a detection signal; gate on the
+// settings blob alone via
+// [codersdk.AIProviderClaudePlatformAWSSettings.IsConfigured].
+func claudePlatformConfigFromRow(row database.AIProvider, settings codersdk.AIProviderSettings) *aibridge.AWSClaudePlatformConfig {
+	if settings.ClaudePlatformAWS == nil {
+		return nil
+	}
+	cpSettings := *settings.ClaudePlatformAWS
+	if !cpSettings.IsConfigured() {
+		return nil
+	}
+	return &aibridge.AWSClaudePlatformConfig{
+		BaseURL:         row.BaseUrl,
+		Region:          cpSettings.Region,
+		WorkspaceID:     cpSettings.WorkspaceID,
+		AccessKey:       ptr.NilToEmpty(cpSettings.AccessKey),
+		AccessKeySecret: ptr.NilToEmpty(cpSettings.AccessKeySecret),
+		RoleARN:         cpSettings.RoleARN,
+		ExternalID:      cpSettings.ExternalID,
+		APIKey:          ptr.NilToEmpty(cpSettings.APIKey),
 	}
 }
 

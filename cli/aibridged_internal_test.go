@@ -304,6 +304,66 @@ func TestBuildProviders(t *testing.T) {
 		}
 		assert.Nil(t, bedrockConfigFromRow(row, settings))
 	})
+
+	t.Run("ClaudePlatformSettingsPresent", func(t *testing.T) {
+		t.Parallel()
+		accessKey := "AKID"
+		secret := "secret"
+		apiKey := "sk-ant-workspace" //nolint:gosec // test fixture, not a real credential
+		row := database.AIProvider{
+			Type:    database.AIProviderTypeClaudePlatformAws,
+			Name:    "claude-platform",
+			BaseUrl: "https://aws-external-anthropic.us-west-2.api.aws",
+		}
+		roleARN := "arn:aws:iam::123456789012:role/ClaudePlatformRole"
+		settings := codersdk.AIProviderSettings{
+			ClaudePlatformAWS: &codersdk.AIProviderClaudePlatformAWSSettings{
+				Region:          "us-west-2",
+				WorkspaceID:     "wrkspc_123",
+				AccessKey:       &accessKey,
+				AccessKeySecret: &secret,
+				RoleARN:         roleARN,
+				ExternalID:      "ext-id",
+				APIKey:          &apiKey,
+			},
+		}
+		got := claudePlatformConfigFromRow(row, settings)
+		require.NotNil(t, got)
+		assert.Equal(t, row.BaseUrl, got.BaseURL)
+		assert.Equal(t, "us-west-2", got.Region)
+		assert.Equal(t, "wrkspc_123", got.WorkspaceID)
+		assert.Equal(t, accessKey, got.AccessKey)
+		assert.Equal(t, secret, got.AccessKeySecret)
+		assert.Equal(t, roleARN, got.RoleARN)
+		assert.Equal(t, "ext-id", got.ExternalID)
+		assert.Equal(t, apiKey, got.APIKey)
+	})
+
+	t.Run("ClaudePlatformSettingsEmpty", func(t *testing.T) {
+		t.Parallel()
+		// A non-nil but zero-valued Claude Platform settings blob should not
+		// produce a config; the provider's generic BaseUrl is not a detection
+		// signal.
+		row := database.AIProvider{
+			Type:    database.AIProviderTypeClaudePlatformAws,
+			Name:    "claude-platform-empty",
+			BaseUrl: "https://aws-external-anthropic.us-east-1.api.aws",
+		}
+		settings := codersdk.AIProviderSettings{
+			ClaudePlatformAWS: &codersdk.AIProviderClaudePlatformAWSSettings{},
+		}
+		assert.Nil(t, claudePlatformConfigFromRow(row, settings))
+	})
+
+	t.Run("ClaudePlatformSettingsNil", func(t *testing.T) {
+		t.Parallel()
+		row := database.AIProvider{
+			Type:    database.AIProviderTypeClaudePlatformAws,
+			Name:    "claude-platform-nil",
+			BaseUrl: "https://aws-external-anthropic.us-east-1.api.aws",
+		}
+		assert.Nil(t, claudePlatformConfigFromRow(row, codersdk.AIProviderSettings{}))
+	})
 }
 
 // TestBuildProvidersSkipsBadRows exercises the skip-and-continue path
@@ -357,6 +417,29 @@ func TestBuildProvidersSkipsBadRows(t *testing.T) {
 		assert.Empty(t, providers)
 		require.Len(t, outcomes, 1)
 		assert.Equal(t, aibridged.ProviderStatusError, outcomes[0].Status)
+	})
+
+	t.Run("ClaudePlatformEnabledButNoSettings", func(t *testing.T) {
+		t.Parallel()
+		db, _ := dbtestutil.NewDB(t)
+		ctx := testutil.Context(t, testutil.WaitShort)
+		logger := slogtest.Make(t, &slogtest.Options{IgnoreErrors: true})
+
+		// Claude Platform for AWS authenticates exclusively via its settings
+		// blob; an enabled row without settings cannot make upstream calls and
+		// must be classified as error.
+		dbgen.AIProvider(t, db, database.AIProvider{
+			Type:    database.AIProviderTypeClaudePlatformAws,
+			Name:    "claude-platform-nosettings",
+			BaseUrl: "https://aws-external-anthropic.us-east-1.api.aws",
+		})
+
+		providers, outcomes, err := BuildProviders(ctx, db, codersdk.AIBridgeConfig{}, logger, nil)
+		require.NoError(t, err)
+		assert.Empty(t, providers)
+		require.Len(t, outcomes, 1)
+		assert.Equal(t, aibridged.ProviderStatusError, outcomes[0].Status)
+		assert.Error(t, outcomes[0].Err)
 	})
 
 	t.Run("BadRowDoesNotBlockGoodRow", func(t *testing.T) {
@@ -426,6 +509,17 @@ func TestBuildProvidersSkipsBadRows(t *testing.T) {
 					Type:    database.AIProviderTypeBedrock,
 					Name:    "bedrock-off",
 					BaseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com/",
+				},
+			},
+			{
+				// Claude Platform for AWS, like Bedrock, rejects enabled rows
+				// without settings; the disabled short-circuit must reach it
+				// before that check.
+				name: "ClaudePlatformAWS",
+				row: database.AIProvider{
+					Type:    database.AIProviderTypeClaudePlatformAws,
+					Name:    "claude-platform-off",
+					BaseUrl: "https://aws-external-anthropic.us-east-1.api.aws",
 				},
 			},
 		} {
