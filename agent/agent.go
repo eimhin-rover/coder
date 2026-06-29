@@ -1585,7 +1585,11 @@ func (a *agent) createDevcontainer(
 		startTime = a.clock.Now()
 		status    = proto.Timing_OK
 	)
-	if err = a.containerAPI.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath); err != nil {
+	createOpts := []agentcontainers.DevcontainerCLIUpOptions{}
+	if dc.SecretsFile != "" {
+		createOpts = append(createOpts, agentcontainers.WithSecretsFile(dc.SecretsFile))
+	}
+	if err = a.containerAPI.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath, createOpts...); err != nil {
 		exitCode = 1
 		status = proto.Timing_EXIT_FAILURE
 	}

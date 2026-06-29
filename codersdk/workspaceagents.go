@@ -456,6 +456,7 @@ type WorkspaceAgentDevcontainer struct {
 	WorkspaceFolder string        `json:"workspace_folder"`
 	ConfigPath      string        `json:"config_path,omitempty"`
 	SubagentID      uuid.NullUUID `json:"subagent_id,omitempty" format:"uuid"`
+	SecretsFile     string        `json:"secrets_file,omitempty"`
 
 	// Additional runtime fields.
 	Status    WorkspaceAgentDevcontainerStatus `json:"status"`
@@ -471,6 +472,7 @@ func (d WorkspaceAgentDevcontainer) Equals(other WorkspaceAgentDevcontainer) boo
 		d.Name == other.Name &&
 		d.WorkspaceFolder == other.WorkspaceFolder &&
 		d.SubagentID == other.SubagentID &&
+		d.SecretsFile == other.SecretsFile &&
 		d.Status == other.Status &&
 		d.Dirty == other.Dirty &&
 		(d.Container == nil && other.Container == nil ||

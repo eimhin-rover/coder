@@ -565,8 +565,13 @@ func (api *API) discoverDevcontainersInProject(projectPath string) error {
 				api.broadcastUpdatesLocked()
 
 				if dc.Status == codersdk.WorkspaceAgentDevcontainerStatusStarting {
+					createOpts := []DevcontainerCLIUpOptions{}
+					if dc.SecretsFile != "" {
+						createOpts = append(createOpts, WithSecretsFile(dc.SecretsFile))
+					}
+
 					api.asyncWg.Go(func() {
-						_ = api.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath)
+						_ = api.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath, createOpts...)
 					})
 				}
 			}
@@ -1423,8 +1428,13 @@ func (api *API) handleDevcontainerRecreate(w http.ResponseWriter, r *http.Reques
 	api.knownDevcontainers[dc.WorkspaceFolder] = dc
 	api.broadcastUpdatesLocked()
 
+	createOpts := []DevcontainerCLIUpOptions{WithRemoveExistingContainer()}
+	if dc.SecretsFile != "" {
+		createOpts = append(createOpts, WithSecretsFile(dc.SecretsFile))
+	}
+
 	go func() {
-		_ = api.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath, WithRemoveExistingContainer())
+		_ = api.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath, createOpts...)
 	}()
 
 	api.mu.Unlock()
@@ -1462,6 +1472,7 @@ func (api *API) CreateDevcontainer(workspaceFolder, configPath string, opts ...D
 			slog.F("devcontainer_name", dc.Name),
 			slog.F("workspace_folder", dc.WorkspaceFolder),
 			slog.F("config_path", dc.ConfigPath),
+			slog.F("secrets_file", dc.SecretsFile),
 		)
 	)
 

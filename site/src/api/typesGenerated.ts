@@ -10111,6 +10111,7 @@ export interface WorkspaceAgentDevcontainer {
 	readonly workspace_folder: string;
 	readonly config_path?: string;
 	readonly subagent_id?: string;
+	readonly secrets_file?: string;
 	/**
 	 * Additional runtime fields.
 	 */

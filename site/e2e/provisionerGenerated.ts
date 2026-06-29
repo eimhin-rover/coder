@@ -317,6 +317,7 @@ export interface Devcontainer {
   apps: App[];
   scripts: Script[];
   envs: Env[];
+  secretsFile: string;
 }
 
 /** App represents a dev-accessible application on the workspace. */
@@ -1120,6 +1121,9 @@ export const Devcontainer = {
     }
     for (const v of message.envs) {
       Env.encode(v!, writer.uint32(66).fork()).ldelim();
+    }
+    if (message.secretsFile !== "") {
+      writer.uint32(74).string(message.secretsFile);
     }
     return writer;
   },
