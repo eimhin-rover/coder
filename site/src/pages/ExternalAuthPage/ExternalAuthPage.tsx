@@ -1,6 +1,6 @@
 import { isAxiosError } from "axios";
 import type { FC } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "react-query";
 import { useParams, useSearchParams } from "react-router";
 import type { ApiErrorResponse } from "#/api/errors";
@@ -45,7 +45,6 @@ const ExternalAuthPage: FC = () => {
 		...exchangeExternalAuthDevice(
 			provider,
 			externalAuthDeviceQuery.data?.device_code ?? "",
-			queryClient,
 		),
 		enabled: Boolean(externalAuthDeviceQuery.data),
 		retry: isExchangeErrorRetryable,
@@ -54,6 +53,18 @@ const ExternalAuthPage: FC = () => {
 		// logic, because the device auth flow is very strict about rate limits.
 		refetchOnWindowFocus: false,
 	});
+
+	// Refresh the provider query so the UI flips out of the polling state
+	// once the device-flow exchange succeeds. Used to live on the query as
+	// `onSuccess`, which react-query v5 silently dropped from useQuery.
+	useEffect(() => {
+		if (!exchangeExternalAuthDeviceQuery.isSuccess) {
+			return;
+		}
+		queryClient.invalidateQueries({
+			queryKey: ["external-auth", provider],
+		});
+	}, [exchangeExternalAuthDeviceQuery.isSuccess, provider, queryClient]);
 
 	if (externalAuthProviderQuery.isLoading || !externalAuthProviderQuery.data) {
 		return null;
