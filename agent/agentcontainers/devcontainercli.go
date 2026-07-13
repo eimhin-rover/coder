@@ -132,6 +132,13 @@ func WithUpOutput(stdout, stderr io.Writer) DevcontainerCLIUpOptions {
 	}
 }
 
+// WithSecretsFile sets the secrets file path during Up operations.
+func WithSecretsFile(secretsFile string) DevcontainerCLIUpOptions {
+	return func(o *DevcontainerCLIUpConfig) {
+		o.Args = append(o.Args, "--secrets-file", secretsFile)
+	}
+}
+
 // DevcontainerCLIExecOptions are options for the devcontainer CLI Exec
 // command.
 type DevcontainerCLIExecOptions func(*DevcontainerCLIExecConfig)

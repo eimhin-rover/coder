@@ -1423,8 +1423,16 @@ func (api *API) handleDevcontainerRecreate(w http.ResponseWriter, r *http.Reques
 	api.knownDevcontainers[dc.WorkspaceFolder] = dc
 	api.broadcastUpdatesLocked()
 
+	upOpts := []DevcontainerCLIUpOptions{
+		WithRemoveExistingContainer(),
+	}
+
+	if dc.SecretsFile != "" {
+		upOpts = append(upOpts, WithSecretsFile(dc.SecretsFile))
+	}
+
 	go func() {
-		_ = api.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath, WithRemoveExistingContainer())
+		_ = api.CreateDevcontainer(dc.WorkspaceFolder, dc.ConfigPath, upOpts...)
 	}()
 
 	api.mu.Unlock()

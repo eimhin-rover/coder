@@ -253,6 +253,7 @@ message Devcontainer {
   repeated App apps = 6;
   repeated Script scripts = 7;
   repeated Env envs = 8;
+  string secrets_file = 9;
 }
 
 enum AppOpenIn {
